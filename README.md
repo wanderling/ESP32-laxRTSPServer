@@ -1,17 +1,4 @@
-# ESP32-RTSPServer
-
-[![GitHub release](https://img.shields.io/github/release/rjsachse/ESP32-RTSPServer.svg)](https://github.com/rjsachse/ESP32-RTSPServer/releases)
-[![GitHub issues](https://img.shields.io/github/issues/rjsachse/ESP32-RTSPServer.svg)](https://github.com/rjsachse/ESP32-RTSPServer/issues)
-[![GitHub license](https://img.shields.io/github/license/rjsachse/ESP32-RTSPServer.svg)](https://github.com/rjsachse/ESP32-RTSPServer/blob/master/LICENSE)
-![GitHub Sponsor](https://img.shields.io/github/sponsors/rjsachse?label=Sponsor&logo=GitHub)
-
-## Support This Project
-
-If this library has been useful to you, please consider donating or sponsoring to support its development and maintenance. Your contributions help ensure that this project continues to improve and stay up-to-date, and also support future projects.
-
-[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/rjsachse)
-
-Thank you for your support!
+# ESP32-laxRTSPServer forked from https://github.com/rjsachse/ESP32-RTSPServer
 
 ## Overview
 ESP32-RTSPServer Library is for the ESP32, designed to stream video, audio, and subtitles. This library allows you to easily create an RTSP server for streaming multimedia content using an ESP32. It supports various transport types and integrates with the ESP32 camera and I2S audio interfaces.
@@ -48,7 +35,7 @@ This library requires the ESP32 Arduino core by Espressif. Ensure you have at le
 
 ## Installation
 1. **Manual Installation**:
-   - Download the library from [GitHub](https://github.com/rjsachse/ESP32-RTSPServer).
+   - Download the library
    - Unzip the downloaded file.
    - Move the `ESP32-RTSPServer` folder to your Arduino libraries directory (usually `Documents/Arduino/libraries`).
 
@@ -356,11 +343,3 @@ uint16_t rtpSubtitlesPort
 uint8_t maxRTSPClients
 ```
   - Description: Maximum number of RTSP clients.
-
-## Support This Project
-
-If this library has been useful to you, please consider donating or sponsoring to support its development and maintenance. Your contributions help ensure that this project continues to improve and stay up-to-date, and also support future projects.
-
-[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/rjsachse) 
-
-Thank you for your support!
