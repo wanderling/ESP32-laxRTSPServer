@@ -1,0 +1,13 @@
+{
+    "name": "ESP32-laxRTSPServer",
+    "version": "0.1.0",
+    "keywords": ["RTSP", "camera", "sdpt", "esp32", "video", "rtp"],
+    "description": "A tolerant ESP32 RTSP server with relaxed handshake order, fallback DESCRIBE, and real-world client compatibility.",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/wanderling/ESP32-laxRTSPServer"
+    },
+    "frameworks": "arduino",
+    "platforms": "espressif32",
+    "headers": "LaxRTSPCompat.h"
+}
