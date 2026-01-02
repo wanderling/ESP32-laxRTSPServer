@@ -1,4 +1,6 @@
 #include "ESP32-RTSPServer.h"
+#include "LaxRTSPCompat.h"
+#include <cstring>
 
 void RTSPServer::wrapInHTTP(char* buffer, size_t len, char* response, size_t maxLen) {
     snprintf(response, maxLen,
@@ -56,51 +58,25 @@ void RTSPServer::handleOptions(char* request, RTSP_Session& session) {
  * 
  * @param session The RTSP session.
  */
-void RTSPServer::handleDescribe(const RTSP_Session& session) {
+void RTSPServer::handleDescribe(RTSP_Session& session) {
+  if (LaxRTSPSession::detectAndEnableLax(session.laxState, LaxRTSPSession::RequestType::Describe)) {
+    RTSP_LOGW(LOG_TAG, "Session %u issued DESCRIBE out of order; switching to lax mode.", session.sessionID);
+  }
+
   char sdpDescription[512];
-  int sdpLen = snprintf(sdpDescription, sizeof(sdpDescription),
-                        "v=0\r\n"
-                        "o=- %ld 1 IN IP4 %s\r\n"
-                        "s=\r\n"
-                        "c=IN IP4 0.0.0.0\r\n"
-                        "t=0 0\r\n"
-                        "a=control:*\r\n",
-                        session.sessionID, WiFi.localIP().toString().c_str());
-
-  if (isVideo) {
-    sdpLen += snprintf(sdpDescription + sdpLen, sizeof(sdpDescription) - sdpLen,
-                       "m=video 0 RTP/AVP 26\r\n"
-                       "a=control:video\r\n");
-  }
-
-  const char* mediaCondition = "sendrecv"; 
-  // if (haveMic && haveAmp) mediaCondition = "sendrecv"; 
-  // else if (haveMic) mediaCondition = "sendonly"; 
-  // else if (haveAmp) mediaCondition = "recvonly"; 
-  // else mediaCondition = "inactive"; 
-
-  if (isAudio) {
-    sdpLen += snprintf(sdpDescription + sdpLen, sizeof(sdpDescription) - sdpLen,
-                       "m=audio 0 RTP/AVP 97\r\n"
-                       "a=rtpmap:97 L16/%lu/1\r\n"
-                       "a=control:audio\r\n"
-                       "a=%s\r\n", sampleRate, mediaCondition);
-  }
-
-  if (isSubtitles) {
-    sdpLen += snprintf(sdpDescription + sdpLen, sizeof(sdpDescription) - sdpLen,
-                       "m=text 0 RTP/AVP 98\r\n"
-                       "a=rtpmap:98 t140/1000\r\n"
-                       "a=control:subtitles\r\n");
-  }
+  size_t sdpLen = LaxRTSPCompat::buildSdpDescription(*this, session, sdpDescription, sizeof(sdpDescription));
 
   char response[1024];
   int responseLen = snprintf(response, sizeof(response),
                              "RTSP/1.0 200 OK\r\nCSeq: %d\r\n%s\r\nContent-Base: rtsp://%s:554/\r\nContent-Type: application/sdp\r\nContent-Length: %d\r\n\r\n"
                              "%s",
-                             session.cseq, dateHeader(), WiFi.localIP().toString().c_str(), sdpLen, sdpDescription);
+                             session.cseq, dateHeader(), WiFi.localIP().toString().c_str(), static_cast<int>(sdpLen), sdpDescription);
   
   write(session.isHttp ? session.httpSock : session.sock, response, responseLen);
+  session.hasFallbackSdp = true;
+  session.fallbackSdpLen = static_cast<uint16_t>(sdpLen);
+  memcpy(session.fallbackSdp, sdpDescription, sdpLen + 1);
+  LaxRTSPSession::noteDescribe(session.laxState);
 }
 
 /**
@@ -110,6 +86,28 @@ void RTSPServer::handleDescribe(const RTSP_Session& session) {
  * @param session The RTSP session.
  */
 void RTSPServer::handleSetup(char* request, RTSP_Session& session) {
+  bool transportAllowed = LaxRTSPSession::shouldAllowSetup(session.laxState);
+  if (!transportAllowed) {
+    bool violation = LaxRTSPSession::detectAndEnableLax(session.laxState, LaxRTSPSession::RequestType::Setup);
+    if (violation) {
+      RTSP_LOGW(LOG_TAG, "Session %u issued SETUP before DESCRIBE; enabling lax mode.", session.sessionID);
+    }
+    transportAllowed = LaxRTSPSession::shouldAllowSetup(session.laxState);
+  }
+
+  if (!transportAllowed) {
+    char response[256];
+    snprintf(response, sizeof(response),
+             "RTSP/1.0 455 Method Not Valid In This State\r\n"
+             "CSeq: %d\r\n"
+             "%s\r\n\r\n",
+             session.cseq, dateHeader());
+    write(session.isHttp ? session.httpSock : session.sock, response, strlen(response));
+    return;
+  }
+
+  LaxRTSPCompat::ensureDescribe(*this, session, "SETUP without DESCRIBE");
+
   session.isMulticast = strstr(request, "multicast") != NULL;
   session.isTCP = strstr(request, "RTP/AVP/TCP") != NULL;
 
@@ -268,6 +266,12 @@ void RTSPServer::handleSetup(char* request, RTSP_Session& session) {
   write(session.isHttp ? session.httpSock : session.sock, response, strlen(response));
   
   free(response);
+  LaxRTSPSession::noteSetup(session.laxState);
+  bool resumed = LaxRTSPCompat::resumeDeferredPlay(session);
+  if (resumed) {
+    setIsPlaying(true);
+    RTSP_LOGW(LOG_TAG, "Session %u had deferred PLAY; starting now.", session.sessionID);
+  }
   this->sessions[session.sessionID] = session;
 }
 
@@ -277,9 +281,36 @@ void RTSPServer::handleSetup(char* request, RTSP_Session& session) {
  * @param session The RTSP session.
  */
 void RTSPServer::handlePlay(RTSP_Session& session) {
-  session.isPlaying = true;
-  this->sessions[session.sessionID] = session;
-  setIsPlaying(true);
+  bool allowPlay = LaxRTSPSession::shouldAllowPlay(session.laxState);
+  if (!allowPlay) {
+    bool violation = LaxRTSPSession::detectAndEnableLax(session.laxState, LaxRTSPSession::RequestType::Play);
+    if (violation) {
+      RTSP_LOGW(LOG_TAG, "Session %u issued PLAY before SETUP; enabling lax mode.", session.sessionID);
+    }
+    allowPlay = LaxRTSPSession::shouldAllowPlay(session.laxState);
+  }
+
+  if (!allowPlay) {
+    char response[256];
+    snprintf(response, sizeof(response),
+             "RTSP/1.0 455 Method Not Valid In This State\r\n"
+             "CSeq: %d\r\n"
+             "%s\r\n\r\n",
+             session.cseq,
+             dateHeader());
+    write(session.isHttp ? session.httpSock : session.sock, response, strlen(response));
+    return;
+  }
+
+  LaxRTSPCompat::ensureDescribe(*this, session, "PLAY without DESCRIBE");
+
+  if (!session.laxState.didSetup) {
+    LaxRTSPSession::flagDeferredPlay(session.laxState);
+    RTSP_LOGW(LOG_TAG, "Session %u PLAY accepted but deferred until SETUP completes.", session.sessionID);
+  } else {
+    session.isPlaying = true;
+    setIsPlaying(true);
+  }
 
   char response[256];
   snprintf(response, sizeof(response),
@@ -294,6 +325,8 @@ void RTSPServer::handlePlay(RTSP_Session& session) {
            session.sessionID);
 
   write(session.isHttp ? session.httpSock : session.sock, response, strlen(response));
+  LaxRTSPSession::notePlay(session.laxState);
+  this->sessions[session.sessionID] = session;
 }
 
 /**

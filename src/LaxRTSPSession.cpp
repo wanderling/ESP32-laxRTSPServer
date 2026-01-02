@@ -17,6 +17,7 @@ void LaxRTSPSession::reset(LaxRTSPState& state) {
   state.didSetup = false;
   state.didPlay = false;
   state.looseMode = false;
+  state.pendingPlay = false;
 }
 
 bool LaxRTSPSession::detectAndEnableLax(LaxRTSPState& state, RequestType request) {
@@ -42,17 +43,14 @@ bool LaxRTSPSession::detectAndEnableLax(LaxRTSPState& state, RequestType request
 }
 
 void LaxRTSPSession::noteDescribe(LaxRTSPState& state) {
-  detectAndEnableLax(state, RequestType::Describe);
   state.didDescribe = true;
 }
 
 void LaxRTSPSession::noteSetup(LaxRTSPState& state) {
-  detectAndEnableLax(state, RequestType::Setup);
   state.didSetup = true;
 }
 
 void LaxRTSPSession::notePlay(LaxRTSPState& state) {
-  detectAndEnableLax(state, RequestType::Play);
   state.didPlay = true;
 }
 
@@ -70,4 +68,16 @@ bool LaxRTSPSession::shouldAllowPlay(const LaxRTSPState& state) {
 
 bool LaxRTSPSession::inLaxMode(const LaxRTSPState& state) {
   return state.looseMode;
+}
+
+void LaxRTSPSession::flagDeferredPlay(LaxRTSPState& state) {
+  state.pendingPlay = true;
+}
+
+bool LaxRTSPSession::hasDeferredPlay(const LaxRTSPState& state) {
+  return state.pendingPlay;
+}
+
+void LaxRTSPSession::clearDeferredPlay(LaxRTSPState& state) {
+  state.pendingPlay = false;
 }

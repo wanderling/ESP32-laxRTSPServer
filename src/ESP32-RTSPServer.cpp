@@ -305,17 +305,22 @@ void RTSPServer::rtspTask() {
       RTSP_Session session = {
         esp_random(),  // sessionID
         client_sock,   // sock
-        0,            // cseq
-        0,            // cVideoPort
-        0,            // cAudioPort
-        0,            // cSrtPort
-        false,        // isMulticast
-        false,        // isPlaying
-        false,        // isTCP
-        false,        // isHttp
-        -1,           // httpSock
-        {0}           // sessionCookie (initialized as empty)
+        0,             // cseq
+        0,             // cVideoPort
+        0,             // cAudioPort
+        0,             // cSrtPort
+        false,         // isMulticast
+        false,         // isPlaying
+        false,         // isTCP
+        false,         // isHttp
+        -1,            // httpSock
+        {0},           // sessionCookie (initialized as empty)
+        LaxRTSPState(),// laxState
+        false,         // hasFallbackSdp
+        0,             // fallbackSdpLen
+        {0}            // fallbackSdp buffer
       };
+      LaxRTSPSession::reset(session.laxState);
       sessions[session.sessionID] = session;
 
       for (int i = 0; i < currentMaxClients; i++) {

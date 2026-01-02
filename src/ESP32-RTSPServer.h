@@ -5,6 +5,9 @@
 #include "lwip/sockets.h"
 #include <esp_log.h>
 #include <map>
+#include "LaxRTSPSession.h"
+
+class LaxRTSPCompat;
 
 #define MAX_RTSP_BUFFER (512 * 1024)
 #define RTP_STACK_SIZE (1024 * 8)
@@ -49,6 +52,10 @@ struct RTSP_Session {
   bool isHttp;  // Add flag for HTTP tunneling
   int httpSock;  // Add HTTP socket storage
   char sessionCookie[MAX_COOKIE_LENGTH];  // Add storage for session cookie
+  LaxRTSPState laxState;
+  bool hasFallbackSdp = false;
+  uint16_t fallbackSdpLen = 0;
+  char fallbackSdp[512] = {0};
 };
 
 class RTSPServer {
@@ -193,7 +200,7 @@ private:
 
   void handleOptions(char* request, RTSP_Session& session);  // Defined in rtsp_requests.cpp
 
-  void handleDescribe(const RTSP_Session& session);  // Defined in rtsp_requests.cpp
+  void handleDescribe(RTSP_Session& session);  // Defined in rtsp_requests.cpp
 
   void handleSetup(char* request, RTSP_Session& session);  // Defined in rtsp_requests.cpp
 
@@ -222,6 +229,8 @@ private:
   bool decodeBase64(const char* input, size_t inputLen, char* output, size_t* outputLen);
   void wrapInHTTP(char* buffer, size_t len, char* response, size_t maxLen);  // Add this line
   RTSP_Session* findSessionByCookie(const char* cookie);  // Add this line
+
+  friend class LaxRTSPCompat;
 };
 
 #endif // ESP32_RTSP_SERVER_H

@@ -7,6 +7,7 @@ struct LaxRTSPState {
   bool didSetup = false;
   bool didPlay = false;
   bool looseMode = false;
+  bool pendingPlay = false;
 };
 
 class LaxRTSPSession {
@@ -28,4 +29,8 @@ public:
   static bool shouldAllowSetup(const LaxRTSPState& state);
   static bool shouldAllowPlay(const LaxRTSPState& state);
   static bool inLaxMode(const LaxRTSPState& state);
+
+  static void flagDeferredPlay(LaxRTSPState& state);
+  static bool hasDeferredPlay(const LaxRTSPState& state);
+  static void clearDeferredPlay(LaxRTSPState& state);
 };
