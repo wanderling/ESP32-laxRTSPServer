@@ -53,9 +53,9 @@ struct RTSP_Session {
   int httpSock;  // Add HTTP socket storage
   char sessionCookie[MAX_COOKIE_LENGTH];  // Add storage for session cookie
   LaxRTSPState laxState;
-  bool hasFallbackSdp = false;
-  uint16_t fallbackSdpLen = 0;
-  char fallbackSdp[512] = {0};
+  bool hasFallbackSdp;
+  uint16_t fallbackSdpLen;
+  char fallbackSdp[512];
 };
 
 class RTSPServer {
